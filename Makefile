@@ -1,6 +1,6 @@
 CFLAGS=-std=c11 -g -static
 
-chibicc: chibicc
+test:
 	./test.sh
 
 clean: clean

@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func printErr(msg string) {
+func printErr(msg interface{}) {
 	fmt.Fprintln(os.Stderr, msg)
 	os.Exit(1)
 }
@@ -15,18 +15,33 @@ func printfErr(msg string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func strol(a string, i *int) string {
-	var result []byte
-	for *i < len(a) {
-		s := a[*i]
-		if '0' <= s && s <= '9' {
-			result = append(result, s)
-			*i++
-		} else {
-			break
-		}
+func Consume(op string) bool {
+	if CurToken.Kind != TK_RESERVED || CurToken.Str != op {
+		return false
 	}
-	return string(result)
+
+	CurToken = CurToken.Next
+	return true
+}
+
+func Expect(op string) {
+	if CurToken.Kind != TK_RESERVED || CurToken.Str != op {
+		printfErr("'%s'ではありません", string(op))
+	}
+	CurToken = CurToken.Next
+}
+
+func ExpectNumber() int {
+	if CurToken.Kind != TK_NUM {
+		printErr("数ではありません")
+	}
+	val := CurToken.Val
+	CurToken = CurToken.Next
+	return val
+}
+
+func AtEOF() bool {
+	return CurToken.Kind == TK_EOF
 }
 
 func main() {
@@ -35,35 +50,25 @@ func main() {
 		printfErr("引数の個数が正しくありません")
 	}
 
-	arg := args[1]
+	input := args[1]
+
+	CurToken = Tokenize(input)
 
 	fmt.Print(`.intel_syntax noprefix
 .globl main
 main:
 `)
+	num := ExpectNumber()
+	fmt.Printf("  mov rax, %d\n", num)
 
-	var i int
-	for i < len(arg) {
-		token := arg[i]
-		if token == '+' {
-			i++
-			fmt.Printf("  add rax, %s\n", strol(arg, &i))
+	for !AtEOF() {
+		if Consume("+") {
+			fmt.Printf("  add rax, %d\n", ExpectNumber())
 			continue
 		}
 
-		if token == '-' {
-			i++
-			fmt.Printf("  sub rax, %s\n", strol(arg, &i))
-			continue
-		}
-
-		num := strol(arg, &i)
-		if num != "" {
-			fmt.Printf("  mov rax, %s\n", string(num))
-			continue
-		}
-
-		printfErr("予期しない文字です： '%s'", string(arg[i]))
+		Expect("-")
+		fmt.Printf("  sub rax, %d\n", ExpectNumber())
 	}
 
 	fmt.Println("  ret")
